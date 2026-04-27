@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>life online</title>
+    <style>
+        :root {
+            --primary-blue: #2196F3;
+            --secondary-blue: #E3F2FD;
+            --accent-yellow: #FFD600;
+            --bg-light: #F5F7FA;
+            --text-dark: #333;
+            --text-gray: #666;
+            --white: #ffffff;
+            --shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-light); color: var(--text-dark);
+            margin: 0; padding: 0; display: flex; justify-content: center; min-height: 100vh;
+        }
+
+        #app-container {
+            width: 100%; max-width: 450px; background: white; position: relative;
+            display: flex; flex-direction: column; padding-bottom: 80px;
+        }
+
+        .page { display: none; padding: 20px; animation: fadeIn 0.3s ease; }
+        .page.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        h1, h2, h3 { color: var(--primary-blue); margin-top: 0; }
+
+        /* 個人資料卡片 */
+        .profile-header {
+            display: flex; align-items: center; background: var(--white); border: 1px solid #eee;
+            padding: 15px; border-radius: 12px; margin-bottom: 20px;
+        }
+        .avatar { width: 80px; height: 80px; border-radius: 50%; border: 2px solid var(--primary-blue); margin-right: 15px; object-fit: cover;}
+        .lv-badge { color: var(--primary-blue); font-weight: bold; margin-right: 10px;}
+        .title-badge { color: var(--accent-yellow); font-weight: bold; background: #fffbe6; padding: 2px 8px; border-radius: 4px; }
+        
+        /* 進度條 */
+        .progress-container { width: 100%; height: 12px; background: #E0E0E0; border-radius: 10px; overflow: hidden; margin-top: 10px;}
+        .progress-fill { height: 100%; background: var(--primary-blue); width: 0%; transition: width 0.5s ease; }
+
+        /* 任務卡片 */
+        .task-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .add-task-btn { background: var(--primary-blue); color: white; border: none; padding: 8px 16px; border-radius: 20px; font-weight:bold; cursor: pointer; }
+        .add-task-btn:disabled { background: #999; cursor: not-allowed; }
+        
+        .task-card {
+            background: white; border-radius: 15px; padding: 20px; margin-bottom: 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05); border: 1px solid #f0f0f0;
+        }
+        .task-name { font-size: 18px; font-weight: bold; margin: 0 0 5px 0; }
+        .task-desc { font-size: 14px; color: var(--text-gray); margin-bottom: 10px; }
+        .task-deadline { font-size: 12px; color: #d32f2f; background: #ffebee; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-bottom: 10px;}
+        .task-footer { display: flex; justify-content: space-between; align-items: center; }
+        .xp-reward { color: var(--accent-yellow); font-weight: bold; font-size: 18px; }
+        .complete-btn { background: var(--primary-blue); color: white; border: none; padding: 8px 20px; border-radius: 12px; font-weight: bold; cursor: pointer; }
+
+        /* 底部導航 */
+        .bottom-nav {
+            position: fixed; bottom: 0; width: 100%; max-width: 450px; background: white;
+            display: flex; justify-content: space-around; padding: 10px 0; border-top: 1px solid #eee; z-index: 100;
+        }
+        .nav-item { text-align: center; color: #ccc; cursor: pointer; flex: 1; }
+        .nav-item.active { color: var(--primary-blue); }
+        .nav-icon { font-size: 24px; margin-bottom: 4px; }
+        .nav-label { font-size: 12px; }
+
+        /* 彈窗 */
+        #modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-content { background: white; padding: 20px; border-radius: 12px; width: 90%; max-width: 350px; }
+        .modal-content input, .modal-content select { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 6px; font-size: 16px;}
+        
+        .loading-text { text-align: center; color: var(--primary-blue); font-weight: bold; display: none; margin: 10px 0;}
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    
+    <div id="page-profile" class="page active">
+        <h1>個人資料與等級</h1>
+        <div class="profile-header">
+            <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Granger" alt="Avatar" class="avatar">
+            <div>
+                <h2 id="p-name" style="margin:0;">Granger</h2>
+                <div style="margin-top: 5px;">
+                    <span class="lv-badge" id="p-level">Lv. 4</span>
+                    <span class="title-badge" id="p-title">國立研究生</span>
+                </div>
+            </div>
+        </div>
+        <div>
+            <div style="display:flex; justify-content:space-between; font-size:14px; color:#666;">
+                <span id="p-xp-text">經驗值 2200 / 3000</span>
+                <span>下一個等級</span>
+            </div>
+            <div class="progress-container">
+                <div id="p-xp-bar" class="progress-fill" style="width: 73%;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="page-tasks" class="page">
+        <div class="task-header">
+            <h1 style="margin:0;">任務列表</h1>
+            <button class="add-task-btn" onclick="openModal()">+ 新增任務</button>
+        </div>
+        
+        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px;">當日任務</h3>
+        <div id="daily-tasks-container"></div>
+
+        <h3 style="border-bottom: 1px solid #eee; padding-bottom: 5px; margin-top: 20px;">中長期任務</h3>
+        <div id="longterm-tasks-container"></div>
+    </div>
+
+    <div id="page-hof" class="page">
+        <h1 style="text-align: center;">名人等級對照表</h1>
+        <div id="hof-container"></div>
+    </div>
+
+    <div class="bottom-nav">
+        <div class="nav-item active" onclick="switchTab('profile')"><div class="nav-icon">👤</div><div class="nav-label">個人資料</div></div>
+        <div class="nav-item" onclick="switchTab('tasks')"><div class="nav-icon">📋</div><div class="nav-label">任務列表</div></div>
+        <div class="nav-item" onclick="switchTab('hof')"><div class="nav-icon">⭐</div><div class="nav-label">名人對照</div></div>
+    </div>
+</div>
+
+<div id="modal">
+    <div class="modal-content">
+        <h3 style="margin-top:0;">新增任務 (AI 自動算分)</h3>
+        
+        <select id="in-type" onchange="toggleDateInput()">
+            <option value="daily">當日任務 (當天完成)</option>
+            <option value="longterm">中長期任務 (有 Deadline)</option>
+        </select>
+        
+        <input type="date" id="in-deadline" style="display:none;">
+        <input type="text" id="in-name" placeholder="任務名稱 (例: 跑台指期回測)">
+        <input type="text" id="in-desc" placeholder="詳細說明 (選填)">
+        
+        <div id="ai-loading" class="loading-text">✨ AI 正在評估難度與經驗值...</div>
+        
+        <div style="display: flex; gap: 10px; margin-top:15px;">
+            <button id="btn-submit" class="add-task-btn" style="flex:1;" onclick="addTask()">送出</button>
+            <button id="btn-cancel" class="add-task-btn" style="flex:1; background:#999;" onclick="closeModal()">取消</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // ⚠️ 填入你的 Gemini API Key
+    // ==========================================
+    const API_KEY = "AIzaSyDX6AJGBuUKFRmS9bFtA4mOsw3NQuFqI10"; 
+
+    // --- 資料結構 ---
+    // --- 資料結構 ---
+    // 如果沒有舊存檔，就給予一個全新的 Lv.1 角色
+    let state = JSON.parse(localStorage.getItem('granger_rpg')) || {
+        name: "Granger", 
+        level: 1,      // 🌟 從 1 等開始
+        xp: 0,         // 🌟 經驗值歸零
+        tasks: []      // 🌟 初始任務清空，等你真的自己加
+    };
+
+    // 這裡就是你專屬的「稱號成長樹」，系統會自動根據上面的 level 抓取對應的稱號！
+    const titles = { 
+        1: "小學生", 
+        3: "國中生",
+        5: "高中生",
+        8: "大一菜鳥",      // ➔ 你目前的現實短期目標！
+        10: "大學老鳥",
+        15: "研究生",
+        20: "碩士",
+        25: "大企業員工",
+        30: "企業小主管",
+        35: "企業經理",
+        40: "小公司CEO",  // ➔ 呼應你對 NVDA/TSMC 的興趣
+        41: "大公司CEO",
+        42: "郭台銘",
+        43: "魏哲家",
+        44: "賈柏斯",
+        45: "張忠謀",
+        50: "伊隆·馬斯克" // ➔ 最終的終極大Boss級別
+    };
+    function getCurrentTitle(currentLevel) {
+        let currentTitle = titles[1];
+        // 把等級由大到小排序來檢查
+        const levels = Object.keys(titles).map(Number).sort((a, b) => b - a);
+        for (let lv of levels) {
+            if (currentLevel >= lv) {
+                return titles[lv];
+            }
+        }
+        return currentTitle;
+    }
+    const getXpThreshold = (lv) => lv * 750;
+
+    function save() { localStorage.setItem('granger_rpg', JSON.stringify(state)); render(); }
+
+    function switchTab(tab) {
+        document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.getElementById(`page-${tab}`).classList.add('active');
+        const navIdx = tab === 'profile' ? 0 : tab === 'tasks' ? 1 : 2;
+        document.querySelectorAll('.nav-item')[navIdx].classList.add('active');
+    }
+
+    function toggleDateInput() {
+        const type = document.getElementById('in-type').value;
+        document.getElementById('in-deadline').style.display = (type === 'longterm') ? 'block' : 'none';
+    }
+
+    function openModal() { document.getElementById('modal').style.display = 'flex'; }
+    
+    function closeModal() { 
+        document.getElementById('modal').style.display = 'none'; 
+        document.getElementById('in-name').value = '';
+        document.getElementById('in-desc').value = '';
+        document.getElementById('in-deadline').value = '';
+    }
+
+    // --- 呼叫 Gemini AI 判定分數 ---
+    async function getTaskXP(taskName, taskDesc, type) {
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
+        const prompt = `你是一個RPG遊戲系統。玩家輸入了一個現實任務，請評估難度以及大致所需耗時給予範圍內分數的經驗值。
+        參考標準：日常瑣事=10~30(例如洗衣服、出門買豆漿)，中度任務=30~200(例如寫一章個經題目、寫python1小時、健身、上財管3小時)，高難度/中長期專案=200~1000(例如準備python期中考、完成國財管期末專案)，大目標=1000~10000(例如考上台大財金、考上政大財管、模擬考考前3名)。
+        任務類型：${type === 'daily' ? '當日任務' : '中長期任務'}
+        任務名稱：${taskName}
+        說明：${taskDesc}
+        請只回傳一個「純阿拉伯數字」，不要任何廢話。`;
+
+        try {
+            const res = await fetch(url, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const data = await res.json();
+            const xp = parseInt(data.candidates[0].content.parts[0].text.trim(), 10);
+            return isNaN(xp) ? 30 : xp;
+        } catch (e) {
+            console.error("AI 判定失敗", e);
+            return 30; // 容錯預設值
+        }
+    }
+
+    // --- 新增任務邏輯 ---
+    async function addTask() {
+        const name = document.getElementById('in-name').value.trim();
+        const desc = document.getElementById('in-desc').value.trim();
+        const type = document.getElementById('in-type').value;
+        const deadline = document.getElementById('in-deadline').value;
+
+        if(!name) return alert("請輸入任務名稱！");
+
+        // 鎖定介面並顯示 AI Loading
+        document.getElementById('btn-submit').disabled = true;
+        document.getElementById('ai-loading').style.display = 'block';
+
+        // 讓 AI 算分數
+        const xpReward = await getTaskXP(name, desc, type);
+
+        state.tasks.push({
+            id: Date.now(),
+            type: type,
+            name: name,
+            desc: desc,
+            deadline: (type === 'longterm') ? deadline : null,
+            xp: xpReward
+        });
+
+        // 恢復介面
+        document.getElementById('btn-submit').disabled = false;
+        document.getElementById('ai-loading').style.display = 'none';
+        closeModal();
+        save();
+    }
+
+    function completeTask(id) {
+        const taskIdx = state.tasks.findIndex(t => t.id === id);
+        const xpGained = state.tasks[taskIdx].xp;
+        
+        state.tasks.splice(taskIdx, 1);
+        state.xp += xpGained;
+
+        while (state.xp >= getXpThreshold(state.level)) {
+            state.xp -= getXpThreshold(state.level);
+            state.level++;
+            alert(`🎉 恭喜！升級至 Lv.${state.level} [${titles[state.level] || '傳奇'}]`);
+        }
+        save();
+    }
+
+    function render() {
+        const threshold = getXpThreshold(state.level);
+        document.getElementById('p-level').innerText = `Lv. ${state.level}`;
+        document.getElementById('p-title').innerText = getCurrentTitle(state.level);
+        document.getElementById('p-xp-text').innerText = `經驗值 ${state.xp} / ${threshold}`;
+        document.getElementById('p-xp-bar').style.width = `${Math.min((state.xp / threshold) * 100, 100)}%`;
+
+        // 渲染當日任務
+        const dailyTasks = state.tasks.filter(t => t.type === 'daily');
+        document.getElementById('daily-tasks-container').innerHTML = dailyTasks.map(t => `
+            <div class="task-card">
+                <p class="task-name">${t.name}</p>
+                <p class="task-desc">${t.desc}</p>
+                <div class="task-footer">
+                    <span class="xp-reward">${t.xp} XP</span>
+                    <button class="complete-btn" onclick="completeTask(${t.id})">完成</button>
+                </div>
+            </div>
+        `).join('') || '<p style="color:#999; text-align:center;">今天沒有任務囉！</p>';
+
+        // 渲染中長期任務
+        const longTasks = state.tasks.filter(t => t.type === 'longterm');
+        document.getElementById('longterm-tasks-container').innerHTML = longTasks.map(t => `
+            <div class="task-card" style="border-left: 4px solid #d32f2f;">
+                <p class="task-name">${t.name}</p>
+                ${t.deadline ? `<span class="task-deadline">⏳ 期限: ${t.deadline}</span>` : ''}
+                <p class="task-desc">${t.desc}</p>
+                <div class="task-footer">
+                    <span class="xp-reward">${t.xp} XP</span>
+                    <button class="complete-btn" onclick="completeTask(${t.id})">完成</button>
+                </div>
+            </div>
+        `).join('') || '<p style="color:#999; text-align:center;">目前沒有中長期任務</p>';
+
+        // 渲染圖鑑
+        // 渲染圖鑑 (確保由低等到高等排序)
+    const sortedLevels = Object.keys(titles).map(Number).sort((a, b) => a - b);
+    document.getElementById('hof-container').innerHTML = sortedLevels.map(lv => `
+        <div style="background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display:flex; align-items:center; opacity: ${state.level >= lv ? 1 : 0.4}">
+            <div style="background:#eee; width:50px; height:50px; border-radius:8px; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px; color: var(--primary-blue);">Lv.${lv}</div>
+            <div><h3 style="margin:0; font-size:16px;">${titles[lv]}</h3></div>
+        </div>
+    `).join('');
+    }
+
+    render();
+</script>
+</body>
+</html>
