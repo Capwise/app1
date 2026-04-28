@@ -6,6 +6,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <title>life online</title>
     <style>
+        .delete-btn {
+    background-color: transparent;
+    border: none;
+    color: #ff5252; /* 紅色 */
+    font-size: 14px;
+    cursor: pointer;
+    margin-right: 15px;
+    padding: 5px;
+    }
+    .delete-btn:hover {
+    text-decoration: underline;
+        }
         :root {
             --primary-blue: #2196F3;
             --secondary-blue: #E3F2FD;
@@ -92,7 +104,7 @@
         <div class="profile-header">
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Granger" alt="Avatar" class="avatar">
             <div>
-                <h2 id="p-name" style="margin:0;">Granger</h2>
+                <h2 id="p-name" style="margin:0; cursor:pointer;" onclick="editNameDirectly()">Granger ✏️</h2>
                 <div style="margin-top: 5px;">
                     <span class="lv-badge" id="p-level">Lv. 4</span>
                     <span class="title-badge" id="p-title">國立研究生</span>
@@ -158,10 +170,28 @@
 </div>
 
 <script>
+    // --- 點名字直接改名 ---
+    function editNameDirectly() {
+        // 彈出視窗詢問新名字，預設帶入目前的名字
+        const newName = prompt("請輸入新的名字：", state.name);
+        
+        // 如果使用者有輸入，且不是按取消或留白
+        if (newName !== null && newName.trim() !== "") {
+            state.name = newName.trim();
+            save(); // 儲存並自動更新畫面
+        }
+    }
+    // 純刪除任務，不增加任何經驗值
+    function deleteTask(id) {
+    if (confirm("確定要刪除這個任務嗎？(不會獲得經驗值)")) {
+        state.tasks = state.tasks.filter(t => t.id !== id);
+        save(); // 儲存並重新渲染
+    }
+    }
     // ==========================================
     // ⚠️ 填入你的 Gemini API Key
     // ==========================================
-    const API_KEY = "AIzaSyDX6AJGBuUKFRmS9bFtA4mOsw3NQuFqI10"; 
+    const API_KEY = "AIzaSyCFe36eVNo8pR4gwHYI8VC5RldkzjpyJKg"; 
 
     // --- 資料結構 ---
     // --- 資料結構 ---
@@ -186,12 +216,18 @@
         30: "企業小主管",
         35: "企業經理",
         40: "小公司CEO",  // ➔ 呼應你對 NVDA/TSMC 的興趣
-        41: "大公司CEO",
-        42: "郭台銘",
-        43: "魏哲家",
-        44: "賈柏斯",
-        45: "張忠謀",
-        50: "伊隆·馬斯克" // ➔ 最終的終極大Boss級別
+        45: "大公司CEO",
+        50: "王永慶",
+        55: "郭台銘",
+        60: "蘇姿丰",
+        65: "奧特曼",
+        70: "魏哲家",
+        75: "比爾蓋茲",
+        80: "貝佐斯",
+        85: "張忠謀",
+        90: "黃仁勳",
+        95: "馬斯克",
+        100: "Laplace's Demon" // ➔ 最終的終極大Boss級別
     };
     function getCurrentTitle(currentLevel) {
         let currentTitle = titles[1];
@@ -204,7 +240,7 @@
         }
         return currentTitle;
     }
-    const getXpThreshold = (lv) => lv * 750;
+    const getXpThreshold = (lv) => lv * 1000;
 
     function save() { localStorage.setItem('granger_rpg', JSON.stringify(state)); render(); }
 
@@ -231,6 +267,7 @@
     }
 
     // --- 呼叫 Gemini AI 判定分數 ---
+    // --- 呼叫 Gemini AI 判定分數 ---
     async function getTaskXP(taskName, taskDesc, type) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${API_KEY}`;
         const prompt = `你是一個RPG遊戲系統。玩家輸入了一個現實任務，請評估難度以及大致所需耗時給予範圍內分數的經驗值。
@@ -238,7 +275,7 @@
         任務類型：${type === 'daily' ? '當日任務' : '中長期任務'}
         任務名稱：${taskName}
         說明：${taskDesc}
-        請只回傳一個「純阿拉伯數字」，不要任何廢話。`;
+        請「絕對只」回傳一個純阿拉伯數字，不要有任何其他文字、換行或標點符號。`;
 
         try {
             const res = await fetch(url, {
@@ -246,11 +283,21 @@
                 body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
             });
             const data = await res.json();
-            const xp = parseInt(data.candidates[0].content.parts[0].text.trim(), 10);
-            return isNaN(xp) ? 30 : xp;
+            
+            // 取得 AI 的原始回傳文字
+            const rawText = data.candidates[0].content.parts[0].text.trim();
+            console.log("AI 原始回傳內容:", rawText); // 你可以在瀏覽器按 F12 看 AI 到底說了什麼
+
+            // 使用正則表達式強制萃取出裡面的連續數字
+            const match = rawText.match(/\d+/);
+            if (match) {
+                return parseInt(match[0], 10);
+            } else {
+                return 30; // 如果真的連一個數字都找不到，才給 30
+            }
         } catch (e) {
             console.error("AI 判定失敗", e);
-            return 30; // 容錯預設值
+            return 30; // 網路錯誤或 API 錯誤時的容錯預設值
         }
     }
 
@@ -303,6 +350,9 @@
 
     function render() {
         const threshold = getXpThreshold(state.level);
+        const avatarUrl = `https://api.dicebear.com/7.x/avataaars/svg?seed=${state.name}`;
+        document.querySelector('.avatar').src = avatarUrl;
+        document.getElementById('p-name').innerText = state.name + " ✏️";
         document.getElementById('p-level').innerText = `Lv. ${state.level}`;
         document.getElementById('p-title').innerText = getCurrentTitle(state.level);
         document.getElementById('p-xp-text').innerText = `經驗值 ${state.xp} / ${threshold}`;
@@ -316,7 +366,10 @@
                 <p class="task-desc">${t.desc}</p>
                 <div class="task-footer">
                     <span class="xp-reward">${t.xp} XP</span>
-                    <button class="complete-btn" onclick="completeTask(${t.id})">完成</button>
+                    <div>
+                        <button class="delete-btn" onclick="deleteTask(${t.id})">刪除</button>
+                        <button class="complete-btn" onclick="completeTask(${t.id})">完成</button>
+                    </div>
                 </div>
             </div>
         `).join('') || '<p style="color:#999; text-align:center;">今天沒有任務囉！</p>';
@@ -330,22 +383,24 @@
                 <p class="task-desc">${t.desc}</p>
                 <div class="task-footer">
                     <span class="xp-reward">${t.xp} XP</span>
-                    <button class="complete-btn" onclick="completeTask(${t.id})">完成</button>
+                    <div>
+                        <button class="delete-btn" onclick="deleteTask(${t.id})">刪除</button>
+                        <button class="complete-btn" onclick="completeTask(${t.id})">完成</button>
+                    </div>
                 </div>
             </div>
         `).join('') || '<p style="color:#999; text-align:center;">目前沒有中長期任務</p>';
 
-        // 渲染圖鑑
         // 渲染圖鑑 (確保由低等到高等排序)
-    const sortedLevels = Object.keys(titles).map(Number).sort((a, b) => a - b);
-    document.getElementById('hof-container').innerHTML = sortedLevels.map(lv => `
-        <div style="background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display:flex; align-items:center; opacity: ${state.level >= lv ? 1 : 0.4}">
-            <div style="background:#eee; width:50px; height:50px; border-radius:8px; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px; color: var(--primary-blue);">Lv.${lv}</div>
-            <div><h3 style="margin:0; font-size:16px;">${titles[lv]}</h3></div>
-        </div>
-    `).join('');
+        const sortedLevels = Object.keys(titles).map(Number).sort((a, b) => a - b);
+        document.getElementById('hof-container').innerHTML = sortedLevels.map(lv => `
+            <div style="background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display:flex; align-items:center; opacity: ${state.level >= lv ? 1 : 0.4}">
+                <div style="background:#eee; width:50px; height:50px; border-radius:8px; display:flex; justify-content:center; align-items:center; font-weight:bold; margin-right:15px; color: var(--primary-blue);">Lv.${lv}</div>
+                <div><h3 style="margin:0; font-size:16px;">${titles[lv]}</h3></div>
+            </div>
+        `).join('');
+        
     }
-
     render();
 </script>
 </body>
